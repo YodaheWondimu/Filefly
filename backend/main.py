@@ -94,8 +94,8 @@ class DownloadsHandler(FileSystemEventHandler):
         self.active_files = set()   # Tracks files currently being handled
         self.moved_files_ts = {}    # Tracks timestamp of auto-moved files
         self.auto_mark_window = 30  # Seconds within which a deletion is auto
-        with open("config.json") as f:
-            config = json.load(f)
+        config = load_config()
+        watch_folders = config["watch_folders"]
         self.ext_map = config["extensions"]
         self.temp_extensions = tuple(config["temp_extensions"])
 
@@ -267,8 +267,36 @@ class DownloadsHandler(FileSystemEventHandler):
             if not event.src_path.lower().endswith(self.temp_extensions):
                 print(f"[Info] File updating while downloading: {event.src_path}")
 
+def load_config():
+    """Load configuration from backend/config.json, creating defaults if missing."""
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(backend_dir, "config.json")
+
+    default_config = {
+        "watch_folders": ["~/Downloads", "~/Documents"]
+    }
+
+    # If config doesn't exist, create one with default settings
+    if not os.path.exists(config_path):
+        with open(config_path, "w") as f:
+            json.dump(default_config, f, indent=4)
+        print("[Info] Created default config.json file with default folders.")
+
+    # Load config
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    # Expand ~ for each path and return
+    config["watch_folders"] = [
+        os.path.expanduser(path) for path in config.get("watch_folders", [])
+    ]
+    return config
+
+config = load_config()
+watch_folders = config["watch_folders"]
+
 # Choosing the downloads path and observer
-watch_folders = [os.path.expanduser("~/Downloads")] # Default watch directory is the downloads folder; can be expanded in config.json
+watch_folders = [os.path.expanduser(path) for path in config.get("watch_folders", ["~/Downloads", "~/Documents"])] # Default watch directories listed; can be expanded in config.json
 event_handler = DownloadsHandler()
 observer = Observer()
 for folder in watch_folders:

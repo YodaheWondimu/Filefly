@@ -1,0 +1,6 @@
+# Core dependencies
+flask>=3.0.0
+watchdog>=4.0.0
+
+# Utility and file handling
+py7zr>=0.20.0

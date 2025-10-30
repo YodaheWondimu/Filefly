@@ -33,5 +33,7 @@
     ".mp4": "~/Documents/Videos",
     ".mkv": "~/Documents/Videos"
   },
-  "temp_extensions": [".tmp", ".crdownload", ".opdownload", ".download", ".partial", "~$", ".xlk", ".bak"]
+  "temp_extensions": [".tmp", ".crdownload", ".opdownload", ".download", ".partial", "~$", ".xlk", ".bak"],
+
+  "watch_folders": ["~/Downloads", "~/Documents"]
 }
