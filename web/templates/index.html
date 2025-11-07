@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Filefly Dashboard</title>
+
+    <!-- Use Flask’s url_for to correctly link your CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Filefly Daemon Dashboard</h1>
+    <p>Status: {{ 'Active' if status.active else 'Inactive' }}</p>
+    <p>Files moved: <span id="moved-files">0</span></p>
+    <p>Watching: <span id="watched-folders"></span></p>
+
+
+    <!-- JS goes here -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <script>
+    async function refreshStatus() {
+        const response = await fetch('/status');
+        const data = await response.json();
+        
+        document.getElementById('moved-files').textContent = data.moved_files;
+        document.getElementById('watched-folders').textContent = data.watched_folders.join(', ');
+        document.getElementById('status-active').textContent = data.active ? "Active" : "Inactive";
+    }
+
+    // Update every 5 seconds
+    setInterval(refreshStatus, 5000);
+
+    // Also run once immediately
+    refreshStatus();
+</script>
+<div>
+  <h1>Filefly Status</h1>
+  <p>Status: <span id="status-active">Loading...</span></p>
+  <p>Watched folders: <span id="watched-folders">Loading...</span></p>
+  <p>Moved files: <span id="moved-files">0</span></p>
+</div>
+</body>
+</html>
