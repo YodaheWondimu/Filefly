@@ -111,7 +111,22 @@ class DownloadsHandler(FileSystemEventHandler):
         self.moved_files_count = 0
         self.ext_map = config["extensions"]
         self.temp_extensions = tuple(config["temp_extensions"])
+        self.file_events = {}
 
+    def update_file_event(self, path, kind):
+        # enforce that the event is *either* auto or manual  
+        if kind == "auto":
+            status = "auto"
+        else:
+            status = "manual"
+
+        self.file_events[path] = {
+            "event": status,
+            "timestamp": time.time()
+        }
+
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {path} -> {status.upper()}") # Fancy value plugins that simply print the timestamp after an event
+    
     def mark_moved(self, old_path, new_path):
         now = time.time()
         self.moved_files.add(old_path)
@@ -124,6 +139,13 @@ class DownloadsHandler(FileSystemEventHandler):
 
     def is_temp(self, path):
         return path.lower().endswith(self.temp_extensions)
+    
+    def is_temp_path(self, path):
+        return any(path.lower().endswith(ext) for ext in self.temp_extensions)
+    
+    def was_recent_auto(self, path):
+        ts = self.moved_files_ts.get(path)
+        return ts and (time.time() - ts < self.auto_mark_window)
 
     def handle_file(self, path):
         path = os.path.abspath(path)
@@ -179,6 +201,7 @@ class DownloadsHandler(FileSystemEventHandler):
                         continue
 
                     shutil.move(path, new_dest_path)
+                    self.update_file_event(new_dest_path, "auto")
                     self.mark_moved(path, new_dest_path)
                     logger.info(f"Moved {path} -> {new_dest_path}")
                     self.moved_files_count += 1
@@ -206,14 +229,17 @@ class DownloadsHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory:
             return
+
         path = event.src_path
-        if self.is_temp(path):
-            logger.info(f"Download started: {path}")
+
+        # Ignore ANY temp file
+        if self.is_temp_path(path):
+            logger.info(f"Download started (temp): {path}")
             return
 
         logger.info(f"New file detected: {path}")
         self.handle_file(path)
-        self.mark_auto(path)
+
 
     def on_moved(self, event):
         if event.is_directory:
@@ -229,9 +255,10 @@ class DownloadsHandler(FileSystemEventHandler):
         if ext in {".tar.gz", ".tar.bz2", ".tar.xz", ".zip", ".7z"} or (suffixes and suffixes[-1] in {".zip", ".7z"}):
             logger.info(f"Archive file detected: {path}")
 
-        if event.dest_path.lower().endswith(self.temp_extensions):
-            logger.info(f"Temp file still downloading: {event.dest_path}")
+        if self.is_temp_path(event.src_path) or self.is_temp_path(event.dest_path):
+            logger.info(f"Ignoring temp file move: {event.src_path} -> {event.dest_path}")
             return
+
 
         src, dest = event.src_path, event.dest_path
         ts = self.moved_files_ts.get(src)
@@ -240,31 +267,52 @@ class DownloadsHandler(FileSystemEventHandler):
             logger.info(f"Auto-move detected (handled by Filefly): {src} -> {dest}")
             return
 
+        self.update_file_event(dest, "manual")
         logger.warning(f"File manually moved/renamed: {src} -> {dest}")
+
         self.handle_file(dest)
 
-        logger.info(f"Download renamed/finalized: {src} -> {dest}")
-        self.handle_file(dest)
 
     def on_deleted(self, event):
         if event.is_directory:
             return
 
-        ts = self.moved_files_ts.get(event.src_path)
+        path = event.src_path
 
-        if ts and time.time() - ts < self.auto_mark_window:
-            logger.info(f"File auto-moved out of watch folder by Filefly (not deleted): {event.src_path}")
-            del self.moved_files_ts[event.src_path]
+        if self.is_temp_path(path):
+            logger.info(f"Ignoring temp file delete: {path}")
+            return
 
-        elif event.src_path in self.active_files:
-            logger.warning(f"File manually removed mid-process: {event.src_path}")
-            self.active_files.discard(event.src_path)
-        else:
-            logger.warning(f"File manually deleted or displaced: {event.src_path}")
+        if self.was_recent_auto(path):
+            logger.info(f"Ignoring auto-move delete event: {path}")
+            return
+
+        if path in self.moved_files:
+            return
+        
+        if path in self.active_files:
+            logger.warning(f"File manually removed mid-process: {path}")
+            self.active_files.discard(path)
+            self.update_file_event(path, "manual")
+            return
+
+        logger.warning(f"File manually deleted or displaced: {path}")
+        self.update_file_event(path, "manual")
+
+
+
 
     def on_modified(self, event):
-        if not event.is_directory and not event.src_path.lower().endswith(self.temp_extensions):
-            logger.info(f"File updating while downloading: {event.src_path}")
+        if event.is_directory:
+            return
+
+        path = event.src_path
+
+        # Ignore temp file modifications
+        if self.is_temp_path(path):
+            return
+
+        logger.info(f"File updating while downloading: {path}")
 
 def load_config():
     backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -306,7 +354,6 @@ for folder in watch_folders:
 
 observer.start()
 logger.info(f"Now watching {watch_folders} for new files... (Ctrl+C to stop)")
-update_status_file(0)
 
 try:
     while True:
@@ -314,12 +361,9 @@ try:
 except KeyboardInterrupt:
     observer.stop()
     logger.info("Stopping Filefly daemon...")
-    update_status_file(event_handler.moved_files_count)
     with open(STATUS_FILE, "r+") as f:
         data = json.load(f)
         data["active"] = False
         f.seek(0)
-        json.dump(data, f, indent=4)
-        f.truncate()
 
 observer.join()

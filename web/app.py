@@ -4,80 +4,68 @@
 
 from flask import Flask, jsonify, render_template, send_from_directory
 import threading
+import logging
 import time
 import json
 import os
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
+status_file = os.path.join(base_dir, "runtime_status.json") # Defines runtime_status.json as the single source of truth for the status
 
-# Create Flask app
 app = Flask(
     __name__,
     static_folder=os.path.join(base_dir, "static"),
     template_folder=os.path.join(base_dir, "templates")
 )
 
-
-# Load config file
 def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
+    config_path = os.path.join(base_dir, "config.json")
     try:
         with open(config_path, "r") as f:
             return json.load(f)
     except FileNotFoundError:
-        print("[Notice] config.json not found, using default watch folders (Downloads & Documents)")
+        logging.warning(f"Config file missing at {config_path}. Using default watch folders.")
         return {"watch_folders": ["~/Downloads", "~/Documents"]}
 
-config = load_config()
-
-status_file = os.path.join(os.path.dirname(__file__), "runtime_status.json")
-
-def get_live_status():
-    status_file = os.path.join(os.path.dirname(__file__), "runtime_status.json")
+def read_status():
     if os.path.exists(status_file):
         with open(status_file, "r") as f:
             return json.load(f)
-    else:
-        return {"active": False, "watched_folders": [], "moved_files": 0}
+    return {"active": False, "watched_folders": [], "moved_files": 0}
 
-# Runtime status
-filefly_status = {
-    "active": True,
-    "watched_folders": config.get("watch_folders", []),
-    "moved_files": 0
-}
-
-# Initialize runtime_status.json if missing
-if not os.path.exists(status_file):
+# Dumps the status into the status_file (runtime_status.json)
+def write_status(data):
     with open(status_file, "w") as f:
-        json.dump(filefly_status, f, indent=4)
+        json.dump(data, f, indent=4)
 
-# ----- ROUTES -----
+# Initialize the JSON file if it doesn't exist yet
+if not os.path.exists(status_file):
+    initial_status = {
+        "active": True,
+        "watched_folders": load_config().get("watch_folders", []),
+        "moved_files": 0
+    }
+    write_status(initial_status)
 
 @app.route("/")
 def home():
-    """Serve the main HTML dashboard."""
-    return render_template("index.html", status=filefly_status)
+    return render_template("index.html", status=read_status()) # Imports the render template in index.html
 
 @app.route("/status")
 def status():
-    """Return current daemon status (JSON)."""
-    return jsonify(filefly_status)
+    return jsonify(read_status())
 
 @app.route("/reload")
 def reload_config():
-    """Reload config.json."""
-    global config, filefly_status
     config = load_config()
-    filefly_status["watched_folders"] = config.get("watch_folders", [])
+    status = read_status()
+    status["watched_folders"] = config.get("watch_folders", [])
+    write_status(status) # Writes the status as it was made in app.py, effectively reloading the config
     return jsonify({"message": "Config reloaded!", "new_config": config})
 
-# Optional: serve CSS/JS manually if needed (Flask usually does this automatically)
 @app.route("/static/<path:filename>")
 def serve_static(filename):
     return send_from_directory(app.static_folder, filename)
-
-# ----- FLASK THREADING -----
 
 def run_flask():
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
@@ -91,3 +79,6 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("\n[Info] Filefly backend shutting down gracefully...")
+        status = read_status()
+        status["active"] = False
+        write_status(status)
