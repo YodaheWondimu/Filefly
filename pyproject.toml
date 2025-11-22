@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "filefly-files"
+version = "0.1.0"
+description = "Automated file management and extraction daemon."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+
+authors = [
+  { name = "Yodahe Wondimu" }
+]
+
+dependencies = [
+    "watchdog",
+    "py7zr",
+    "flask",
+]
+
+# CLI script: installs 'filefly' command
+[project.scripts]
+filefly = "filefly.__main__:main"
+
+# Tell setuptools where to find your packages
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["filefly"]
+
+# Include static/templates/json files
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+filefly = [
+    "config.json",
+    "runtime_status.json",
+    "templates/*",
+    "static/*"
+]
