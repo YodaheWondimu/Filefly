@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filefly Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>Filefly Daemon Dashboard</h1>
+
+  <p>Status: <span id="status-active">{{ 'Active' if status.active else 'Inactive' }}</span></p>
+  <p>Files moved: <span id="moved-files">{{ status.moved_files }}</span></p>
+  <p>Watching: <span id="watched-folders">{{ status.watched_folders | join(', ') }}</span></p>
+
+  <script>
+    // auto-refresh status
+    async function refreshStatus() {
+      const res = await fetch("/status");
+      const data = await res.json();
+      document.getElementById("moved-files").textContent = data.moved_files;
+      document.getElementById("watched-folders").textContent = data.watched_folders.join(', ');
+      document.getElementById("status-active").textContent = data.active ? "Active" : "Inactive";
+    }
+
+    setInterval(refreshStatus, 5000);
+    refreshStatus();
+  </script>
+</body>
+</html>

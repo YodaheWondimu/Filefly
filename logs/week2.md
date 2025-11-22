@@ -109,4 +109,4 @@ Press CTRL+C to quit
 
 Warm regards, and God bless you,
 
-^ OtterShot
+^ Yodahe

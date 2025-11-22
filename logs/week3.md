@@ -251,4 +251,4 @@ Today was a great day in terms of learning, but it was SURE a lot to take in at 
 
 Warm regards, and God bless you,
 
-^ OtterShot
+^ Yodahe

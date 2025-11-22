@@ -88,4 +88,4 @@ It's crazy to think that this has only been 2 months of my work, and it's alread
 
 Warm regards, and God bless you,
 
-^ OtterShot
+^ Yodahe
