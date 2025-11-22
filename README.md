@@ -30,10 +30,10 @@ It also includes a lightweight web dashboard for monitoring activity, viewing lo
 
 ## Install Filefly from PyPI (recommended)
 
-Once Filefly is published to PyPI, users will be able to install it with:
+Users are able to install Filefly with:
 
 ```
-pip install filefly
+pip install filefly-files==0.1.0
 ```
 
 All Python dependencies will install automatically.
@@ -42,7 +42,7 @@ All Python dependencies will install automatically.
 
 ### Option 1 — Run the daemon via terminal
 
-After installation, Filefly provides a command-line entry point:
+After installation, Filefly should provide a command-line entry point:
 
 ```
 filefly
@@ -52,7 +52,7 @@ This launches the background daemon and begins monitoring the configured folders
 
 ### Option 2 — Run using Python directly
 
-Equivalent to above:
+Exact equivalent to above:
 
 ```
 python -m filefly
