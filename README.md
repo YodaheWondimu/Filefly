@@ -1,32 +1,39 @@
 # Filefly
-A self-learning file automation daemon that intelligently classifies and extracts downloaded files.
-Works with dozens of file types and sizes to ensure compatiability while working with incoming files in real time.
-It also includes a lightweight web dashboard for monitoring activity, viewing logs, and managing rules.
+![Python](https://img.shields.io/badge/python-3.8+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-**Want to learn more? Check out the /logs branch to read weekly devlogs put in place before release.**
+A real-time file automation daemon written in Python that monitors, classifies, and organizes files as they are downloaded.
+Filefly combines rule-based routing with adaptive behavior to safely handle a wide range of file types.
+Designed to handle real-world edge cases such as incomplete downloads, race conditions, and conflicting file operations.
 
-# Features
+**📓 Development logs documenting the full build process are available in the `logs` branch.**
 
-- Real-time monitoring of multiple folders
-- Automatic extraction of ZIP, TAR, 7z, and more
-- Self-learning event classification (auto vs manual)
-- Browser-based dashboard (Flask)
-- File routing based on extension rules
-- Configurable folder mappings
-- Detects manual deletes and moves
-- Safe-move logic prevents overwrites
-- Keeps a real-time runtime_status.json
-- Logs everything to filefly.log
+## Features
 
-# Screenshots
+### Core Functionality
+- Real-time monitoring of multiple directories
+- Rule-based file routing by extension
+- Automatic archive extraction (ZIP, TAR, 7z)
+
+### Reliability
+- Safe-move logic to prevent overwrites
+- Download stabilization to avoid partial file handling
+- Detection of manual file moves and deletions
+
+### Observability
+- Real-time `runtime_status.json`
+- Persistent logging via `filefly.log`
+- Lightweight web dashboard (Flask)
+
+## Screenshots
 
 ## Terminal
 ![Terminal screenshot](assets/filefly_terminal.png)
 
-# Web Dashboard
+## Web Dashboard
 ![Dashboard screenshot](assets/filefly_web_dashboard.png)
 
-# How to Install
+## How to Install
 
 ## Install Filefly from PyPI (recommended)
 
@@ -60,32 +67,39 @@ python -m filefly
 
 ## Configuration
 
-When Filefly runs for the first time, it generates:
+On first run, Filefly generates a configuration file:
 
+- Linux/macOS: `~/.config/filefly/config.json`
+- Local project: `filefly/config.json`
+
+### Configuration Structure
+
+`config.json`
 ```
-~/.config/filefly/config.json   (or your packaged config)
+{
+    "watch_folders": ["~/Downloads"],
+    "extensions": {
+        ".zip": "~/Documents/Archives",
+        ".pdf": "~/Documents/PDFs"
+    },
+    "temp_extensions": [".crdownload", ".part", ".tmp"]
+}
 ```
+Users may edit this file to customize behavior via three parameters: `watch_folders`, `extensions`, and `temp_extensions`.
+watch_folders: directories on the watchlist
+extensions: file types to reroute
+temp_extensions: temporary download formats to ignore
 
-Or if you're using your bundled config:
+Waiting for temporary files to stabilize before processing them prevents race conditions during downloads.
 
-```
-filefly/config.json
-```
+The `config.json` file typically lives right next to main.py.
 
-This file typically lives right next to main.py.
-Users may edit this file to:
-- add or remove watched folders
-- map file extensions to destination directories
-- define temporary extensions
-- customize behavior
+The system can adapt to certain file behaviors over time and handle unexpected cases gracefully, using logged events to improve reliability.
 
-These file events follow the config files to know what to do, but the core logic can also "self-learn" if certain areas of your computer don't give off safe paths. It can also work its way around errors that may be thrown and pull all of its information gathered into a filefly.log file on startup.
-
-Every config file has:
-- a watch_folders section to store the folders on your computer that you want to watch
-- an extensions folder to define file extensions and where you want to put files of those extensions
-- a temp_extensions folder to store extensions of temporary files about to be renamed so Filefly can ignore them automatically
-    - These temp extensions are files made by your browser every time you download a file off of them. They quickly rename themselves, however, once their full content is written into the file, which can trip up Filefly due to the potential of race conditions and the fact that you can't know what file type something is solely based on the temp extension. Filefly auto-stabilizes until these files fully write their info, then it's safe to move your files.
+File events are processed according to the rules defined in `config.json`.
+If a file’s extension is recognized, it is routed to the configured destination; otherwise, it is ignored.
+Filefly can work its way around errors that may be thrown, too.
+All events and errors are recorded in `filefly.log` for traceability and debugging.
 
 The extension routing works as a hand-in-hand communication with main.py and config.json.
 When main.py detects a downloading file of a certain extension, it's sent to config.json to see if it's recognized.
@@ -138,25 +152,31 @@ To ensure Filefly is installed correctly:
 python -c "import filefly; print(filefly.__version__)"
 ```
 
+## Upgrading
+
+```
+pip install --upgrade filefly-files
+```
+
 ## Uninstalling
 
 ```
-pip uninstall filefly
+pip uninstall filefly-files
 ```
 
-# Usage
+## How It Works
 
-Once the program is run, here's the process followed by the core logic:
+1. Filefly monitors configured directories
+2. When a file appears:
+   - waits for the file to stabilize
+   - determines its extension
+   - checks routing rules
+3. If matched:
+   - moves file to destination
+   - extracts archives if needed
+4. Logs all actions for traceability
 
-- Filefly starts watching the folders defined in config.json
-- When a file is detected:
-    - it waits for the download to stabilize
-    - determines its extension
-    - moves it to the appropriate folder
-    - logs the move in filefly.log
-    - extracts archives when needed
-
-# Directory Structure (inside Filefly/)
+## Project Structure
 
 ```
 filefly/
@@ -178,9 +198,8 @@ README.md
 requirements.txt
 ```
 
-# Contributing and Development
-
-Want to contribute to Filefly? Just clone this repository on your system and change up whatever's necessary:
+## Contributing and Development
+Want to contribute to Filefly? Just clone this repository on your system and make any necessary changes:
 
 ```
 git clone https://github.com/YodaheWondimu/Filefly.git
@@ -189,7 +208,6 @@ pip install -r requirements.txt
 python -m filefly
 ```
 
-# License
-
+## License
 Filefly is released under the MIT License.
 See `LICENSE` for more details.
