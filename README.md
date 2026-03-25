@@ -176,6 +176,40 @@ pip uninstall filefly-files
    - extracts archives if needed
 4. Logs all actions for traceability
 
+## Future Work
+
+Filefly is currently focused on reliable, rule-based file automation. Future development will expand its adaptability, performance, and analytical capabilities.
+
+### Smarter Classification
+- Move beyond extension-based routing toward content-aware handling
+- Explore heuristic and pattern-based classification for ambiguous files
+- Investigate lightweight learning approaches for recurring user behaviors
+
+### Behavioral Analysis & Insights
+- Store structured file event data using SQLite for long-term analysis
+- Analyze trends in file types, sizes, and user interactions over time
+- Visualize file activity patterns using matplotlib (e.g., frequency, distribution, growth)
+- Use collected data to inform smarter routing and automation decisions
+
+### Performance & Scalability
+- Optimize handling of large directories with high file throughput
+- Improve event processing efficiency and reduce redundant operations
+- Introduce batching or prioritization strategies for heavy workloads
+
+### Reliability Improvements
+- Strengthen handling of edge cases such as interrupted writes and rapid file changes
+- Expand safeguards around file conflicts and concurrent operations
+- Enhance logging for deeper debugging and traceability
+
+### Dashboard & Observability
+- Expand the web dashboard with richer file event insights
+- Add filtering, search, and historical views for logs
+- Integrate visual analytics directly into the dashboard interface
+
+### Extensibility
+- Introduce a plugin or rule-extension system for custom behaviors
+- Allow users to define more advanced routing logic beyond extensions
+
 ## Project Structure
 
 ```
