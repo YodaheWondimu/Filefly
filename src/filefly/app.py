@@ -1,5 +1,5 @@
 # Made by Yodahe Wondimu
-# Welcome to the backend of Filefly.
+# Welcome to the backend of Filefly's web dashboard.
 # The stage sets, and the curtains are pulled aside...
 
 from flask import Flask, jsonify, render_template, send_from_directory
@@ -25,7 +25,7 @@ def load_config():
             return json.load(f)
     except FileNotFoundError:
         logging.warning(f"Config file missing at {config_path}. Using default watch folders.")
-        return {"watch_folders": ["~/Downloads", "~/Documents"]}
+        return {"watch_folders": ["~/Downloads"]}
 
 def read_status():
     if os.path.exists(status_file):

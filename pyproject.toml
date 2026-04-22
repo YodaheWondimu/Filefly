@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "filefly-files"
-version = "0.1.0"
-description = "Automated file management and extraction daemon."
+version = "0.2.0a1"
+description = "An automated daemon for file management/extraction and file behavior analysis."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
@@ -20,18 +20,28 @@ dependencies = [
     "flask",
 ]
 
+[project.urls]
+Homepage = "https://github.com/YodaheWondimu/Filefly"
+Repository = "https://github.com/YodaheWondimu/Filefly"
+
+[project.optional-dependencies]
+analysis = [
+    "matplotlib",
+    "pandas",
+]
+
 # CLI script: installs 'filefly' command
 [project.scripts]
 filefly = "filefly.__main__:main"
 
 # Tell setuptools where to find your packages
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["filefly"]
-
-# Include static/templates/json files
 [tool.setuptools]
+package-dir = {"" = "src"}
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["filefly"]
 
 [tool.setuptools.package-data]
 filefly = [

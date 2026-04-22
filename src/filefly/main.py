@@ -9,20 +9,21 @@ import shutil
 import os
 import zipfile
 import json
+import logging
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pathlib import Path
-import logging
+from storage import Storage
+from telemetry import Telemetry
+from logging_config import setup_logging
+
+storage = Storage()
+telemetry = Telemetry()
+
+print("HANDLER FILE PATH:", __file__)
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("filefly.log"),  # saves logs to a file
-        logging.StreamHandler()              # also prints to console
-    ]
-)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Check whether or not the system using Filefly has py7zr imported
@@ -51,7 +52,10 @@ def update_status_file(moved_files_count):
 # Global function to handle archive files
 def handle_archive(archive_path, dest_folder):
     """Handles the movement and extraction of archive files."""
-    extract_folder = os.path.splitext(archive_path)[0]
+    base_name = os.path.basename(archive_path)
+    name_without_ext = os.path.splitext(base_name)[0]
+
+    extract_folder = os.path.join(dest_folder, name_without_ext)
     os.makedirs(extract_folder, exist_ok=True)
 
     if archive_path.lower().endswith(".7z"):
@@ -110,11 +114,18 @@ class DownloadsHandler(FileSystemEventHandler):
         self.moved_files = set()         # normalized paths we've moved (old or new)
         self.active_files = set()        # normalized paths currently being processed
         self.moved_files_ts = {}         # normalized old_path -> timestamp when we auto-moved it
-        self.auto_mark_window = 30      # seconds within which deletes/moves are considered auto
-        config = load_config()
+        self.auto_mark_window = 30       # seconds within which deletes/moves are considered auto
         self.moved_files_count = 0
-        self.ext_map = config["extensions"]
-        self.temp_extensions = tuple(config["temp_extensions"])
+        self.config = load_config()
+        self.processed_files = {}        # paths we've fully processed (moved and/or extracted), timestamps and sizes of the normalized files
+        self.ext_map = {}
+        for ext, folder in self.config["extensions"].items():
+            normalized_folder = os.path.abspath(
+                os.path.expanduser(folder)
+            )
+            os.makedirs(normalized_folder, exist_ok=True)
+            self.ext_map[ext.lower()] = normalized_folder
+        self.temp_extensions = tuple(self.config["temp_extensions"])
         self.file_events = {}           # normalized path -> { event, timestamp }
 
     # ---------- Helpers ----------
@@ -168,102 +179,200 @@ class DownloadsHandler(FileSystemEventHandler):
     # ---------- Core file handling ----------
     def handle_file(self, path):
         """Wait for the file to stabilize and then move it to destination if applicable."""
-        orig_path = os.path.abspath(path)
-        norm_path = self._norm(orig_path)
-        # Add to active set (normalized)
-        self.active_files.add(norm_path)
+        try:
+            logger.info(f"HANDLE_FILE STARTED: {path}")
+            orig_path = os.path.abspath(path)
+            norm_path = self._norm(orig_path)
+            # Add to active set (normalized)
+            self.active_files.add(norm_path)
 
-        # Immediately ignore known temporary patterns
-        if self.is_temp_path(orig_path):
-            logger.info(f"Temp file still downloading: {orig_path}")
-            # keep it in active_files if we want to track, but do not attempt to move
-            return
+            # Immediately ignore known temporary patterns
+            if self.is_temp_path(orig_path):
+                logger.info(f"Temp file still downloading: {orig_path}")
+                # keep it in active_files if we want to track, but do not attempt to move
+                return
 
-        # If already acted on, skip
-        if norm_path in self.moved_files:
-            return
+            # If already acted on, skip
+            entry = self.processed_files.get(norm_path)
 
-        # locate extension mapping
-        suffixes = Path(orig_path).suffixes
-        ext = "".join(suffixes).lower()
-        if ext not in self.ext_map:
-            return
+            if entry and os.path.exists(orig_path):
+                same_size = os.path.getsize(orig_path) == entry["size"]
+                recent = time.time() - entry["time"] < 10
 
-        dest_folder = os.path.expanduser(self.ext_map[ext])
-        os.makedirs(dest_folder, exist_ok=True)
-        filename = os.path.basename(orig_path)
-        new_dest_path = get_safe_path(dest_folder, filename)
-        new_dest_norm = self._norm(new_dest_path)
+                if same_size and recent:
+                    return
 
-        last_size = -1
-        stable_count = 0
-        waited = 0
+            if norm_path in self.moved_files:
+                return
+            
+            self.active_files.add(norm_path)
 
-        image_exts = {".jpg", ".jpeg", ".png"}
-        is_image = ext in image_exts
-        max_wait = 15 if is_image else 60
+            # Determine file type and destination based on extension
+            suffixes = Path(orig_path).suffixes
+            ext = "".join(suffixes).lower()
+            
+            is_archive = ext in {".zip", ".7z", ".tar", ".tar.gz", ".tgz", ".tar.bz2"}
 
-        # Wait loop for stabilization (same semantics as before)
-        while waited < max_wait:
-            if not os.path.exists(orig_path):
-                time.sleep(0.5)
-                waited += 0.5
-                continue
+            if ext not in self.ext_map and not is_archive:
+                return
 
-            size = os.path.getsize(orig_path)
-
-            if size < 1024 * 50:
-                stable_count = max_wait
-
-            if size == last_size:
-                stable_count += 1
+            if ext in self.ext_map:
+                dest_folder = self.ext_map[ext]
             else:
-                stable_count = 0
-                last_size = size
+                dest_folder = os.path.expanduser("~/Documents/Archives")
 
-            logger.info(f"Checking {orig_path} (ext={ext}) size={size} last={last_size} stable_count={stable_count}...")
+            os.makedirs(dest_folder, exist_ok=True)
+            filename = os.path.basename(orig_path)
+            new_dest_path = get_safe_path(dest_folder, filename)
 
-            if (is_image and stable_count >= 1) or (not is_image and stable_count >= 3):
-                try:
-                    if not os.path.exists(orig_path):
-                        continue
+            last_size = -1
+            stable_count = 0
+            waited = 0
 
-                    # Move file
-                    shutil.move(orig_path, new_dest_path)
+            image_exts = {".jpg", ".jpeg", ".png", ".svg", ".gif", ".tif", ".tiff"}
+            is_image = ext in image_exts
+            max_wait = 15 if is_image else 60
 
-                    # Mark event & bookkeeping using normalized keys
-                    self.update_file_event(new_dest_path, "auto")
-                    self.mark_moved(orig_path, new_dest_path)
+            start_time = time.time()
 
-                    logger.info(f"Moved {orig_path} -> {new_dest_path}")
-                    self.moved_files_count += 1
+            # Wait loop for stabilization
+            while waited < max_wait:
+                if not os.path.exists(orig_path):
+                    time.sleep(0.5)
+                    waited += 0.5
+                    continue
 
-                    # update global status (assumes update_status_file exists)
+                size = os.path.getsize(orig_path)
+
+                if size < 1024 * 50:
+                    stable_count = max_wait
+
+                # If size is unchanged, increment stable count, else reset it and update last_size
+                if size == last_size:
+                    stable_count += 1
+                else:
+                    stable_count = 0
+                    last_size = size
+
+                logger.info(f"Checking {orig_path} (ext={ext}) size={size} last={last_size} stable_count={stable_count}...")
+
+                if (is_image and stable_count >= 1) or (not is_image and stable_count >= 3):
                     try:
-                        update_status_file(self.moved_files_count)
-                    except Exception:
-                        logger.debug("update_status_file failed or is not available in this context.")
+                        if not os.path.exists(orig_path):
+                            continue
+                        
+                        end_time = time.time()
+                        stabilization_time = end_time - start_time
+                        processing_start = time.time()
 
-                    # remove from active set (normalized)
-                    self.active_files.discard(norm_path)
+                        telemetry.record_event("created", orig_path, ext)
+                        telemetry.record_stabilization(stabilization_time)
 
-                    # expire old timestamps (housekeeping)
-                    now = time.time()
-                    for f, ts in list(self.moved_files_ts.items()):
-                        if now - ts > 3600:
-                            self.moved_files_ts.pop(f, None)
-                            self.moved_files.discard(f)
+                        storage.insert_event(
+                            path=orig_path,
+                            event_type="created",
+                            extension=ext,
+                            size=os.path.getsize(orig_path),
+                            stabilization_time=stabilization_time,
+                        )
 
-                    # Extract archives if needed
-                    if ext in {".zip", ".7z", ".tar", ".tar.gz", ".tgz", ".tar.bz2"}:
-                        handle_archive(new_dest_path, dest_folder)
-                    return
-                except Exception as e:
-                    logger.error(f"Error moving {orig_path}: {e}")
-                    return
+                        if not os.path.exists(orig_path):
+                            logger.warning("File disappeared before move.")
+                            return
+                        # Retry loop for move operation (handle transient file access issues)
+                        start_time = time.time()
+                        for attempt in range(3):
+                            try:
+                                if not os.path.exists(orig_path):
+                                    logger.warning(f"File disappeared before move: {orig_path}")
+                                    return
 
-            time.sleep(1)
-            waited += 1
+                                shutil.move(orig_path, new_dest_path)
+                                break
+
+                            except FileNotFoundError:
+                                logger.warning(f"Retrying move (race condition): {orig_path}")
+                                time.sleep(0.5)
+
+                        else:
+                            logger.error(f"Failed to move after {attempt + 1} tries: {orig_path}")
+                            self.mark_auto(orig_path)
+                            return
+
+                        # After successful move, record the processed file with timestamp and size (normalized)
+                        new_norm = self._norm(new_dest_path)
+
+                        self.processed_files[new_norm] = {
+                            "time": time.time(),
+                            "size": os.path.getsize(new_dest_path)
+                        }
+
+                        # Record telemetry and storage event
+                        processing_time = time.time() - processing_start
+
+                        telemetry.record_event("sorted", new_dest_path, ext)
+                        telemetry.record_stabilization(stabilization_time)
+
+                        storage.insert_event(
+                            path=new_dest_path,
+                            event_type="sorted",
+                            extension=ext,
+                            size=os.path.getsize(new_dest_path),
+                            stabilization_time=stabilization_time,
+                            processing_time=processing_time
+                        )
+
+                        # Mark event & bookkeeping using normalized keys
+                        self.update_file_event(new_dest_path, "auto")
+                        self.mark_moved(orig_path, new_dest_path)
+
+                        logger.info(f"Moved {orig_path} -> {new_dest_path}")
+                        self.moved_files_count += 1
+
+                        # update global status (assumes update_status_file exists)
+                        try:
+                            update_status_file(self.moved_files_count)
+                        except Exception:
+                            logger.debug("update_status_file failed or is not available in this context.")
+
+                        # remove from active set (normalized)
+                        self.active_files.discard(norm_path)
+
+                        # expire old timestamps (housekeeping)
+                        now = time.time()
+                        for f, ts in list(self.moved_files_ts.items()):
+                            if now - ts > 3600:
+                                self.moved_files_ts.pop(f, None)
+                                self.moved_files.discard(f)
+
+                        # Extract archives if needed
+                        if ext in {".zip", ".7z", ".tar", ".tar.gz", ".tgz", ".tar.bz2"}:
+                            processing_start = time.time()
+                            handle_archive(new_dest_path, dest_folder)
+                            processing_time = time.time() - processing_start
+
+                            telemetry.record_event("archive_extracted", orig_path, ext)
+                            telemetry.record_stabilization(stabilization_time)
+                            
+                            storage.insert_event(
+                                path=new_dest_path,
+                                event_type="archive_extracted",
+                                extension=ext,
+                                size=os.path.getsize(new_dest_path),
+                                stabilization_time=stabilization_time,
+                                processing_time=processing_time
+                            )
+                        return
+                    except Exception as e:
+                        self.mark_auto(orig_path)
+                        logger.error(f"Error moving {orig_path}: {e}")
+                        return
+
+                time.sleep(1)
+                waited += 1
+        finally:
+            self.active_files.discard(norm_path)
+            logger.info(f"HANDLE_FILE ENDED: {path}")
 
         logger.error(f"Failed to move {orig_path}: download couldn't stabilize after repeated attempts.")
 
@@ -277,7 +386,7 @@ class DownloadsHandler(FileSystemEventHandler):
         if self.is_temp_path(path):
             logger.info(f"Download started (temp): {path}")
             return
-
+        
         logger.info(f"New file detected: {path}")
         # Only handle the file once: call handle_file()
         self.handle_file(path)
@@ -289,20 +398,19 @@ class DownloadsHandler(FileSystemEventHandler):
         src = event.src_path
         dest = event.dest_path
 
-        # If either side looks like a temp file, ignore (browser renames)
-        if self.is_temp_path(src) or self.is_temp_path(dest):
-            logger.info(f"Ignoring temp file move: {src} -> {dest}")
-            return
-
         # If the destination is an archive or interesting extension, log it (non-critical)
         suffixes = Path(dest).suffixes
         ext = "".join(suffixes).lower()
         if ext in {".tar.gz", ".tar.bz2", ".tar.xz", ".zip", ".7z"} or (suffixes and suffixes[-1] in {".zip", ".7z"}):
             logger.info(f"Archive file detected: {dest}")
 
-        # If we recently auto-handled this src path, treat this as auto and ignore manual logging
-        if self.was_recent_auto(src) or self.was_recent_auto(dest):
-            logger.info(f"Auto-move detected (handled by Filefly): {src} -> {dest}")
+        # Ignore "temp -> temp" moves only
+        if self.is_temp_path(src) and self.is_temp_path(dest):
+            return
+
+        if self.is_temp_path(src) and not self.is_temp_path(dest):
+            logger.info(f"Download completed: {dest}")
+            self.handle_file(dest)
             return
 
         # Otherwise this appears to be a user/manual move/rename
@@ -313,10 +421,17 @@ class DownloadsHandler(FileSystemEventHandler):
         self.handle_file(dest)
 
     def on_deleted(self, event):
-        if event.is_directory:
-            return
-
         path = event.src_path
+        if event.is_directory or self.was_recent_auto(path):
+            return
+        
+        norm = self._norm(path)
+        last_time = self.processed_files.get(norm)
+
+        if last_time and (time.time() - last_time < 10):
+            logger.info(f"Skipping recently processed file: {path}")
+            return
+        
         norm = self._norm(path)
 
         # Ignore temp-file deletions
@@ -333,9 +448,8 @@ class DownloadsHandler(FileSystemEventHandler):
 
         # If the file was being actively processed by us and was removed mid-process
         if norm in self.active_files:
-            logger.warning(f"File manually removed mid-process: {path}")
+            logger.info("Ignoring delete during active processing")
             self.active_files.discard(norm)
-            self.update_file_event(path, "manual")
             return
 
         # Otherwise this is an external manual delete/displacement
@@ -363,15 +477,15 @@ def load_config():
     """Loads the configuration files for the management to base itself off of."""
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(backend_dir, "config.json")
-
+    # If config doesn't exist, create it with defaults and log it. Then load and return the config. 
     default_config = {
-        "watch_folders": ["~/Downloads", "~/Documents"],
+        "watch_folders": ["~/Downloads"],
         "extensions": {
             ".zip": "~/Documents/Archives",
             ".pdf": "~/Documents/PDFs",
             ".jpg": "~/Pictures",
             ".png": "~/Pictures",
-            ".txt": "~/Documents/TextFiles"
+            ".txt": "~/Documents/Text"
         },
         "temp_extensions": [".crdownload", ".part", ".tmp"]
     }
@@ -396,6 +510,7 @@ def main():
     event_handler = DownloadsHandler()
     observer = Observer()
 
+    # Set up the status file at startup
     for folder in watch_folders:
         os.makedirs(folder, exist_ok=True)
         observer.schedule(event_handler, path=folder, recursive=False)
@@ -403,6 +518,7 @@ def main():
     observer.start()
     logger.info(f"Now watching {watch_folders} for new files... (Ctrl+C to stop)")
 
+    # Keep the program running until interrupted, then cleanly stop the observer and update status
     try:
         while True:
             time.sleep(1)
@@ -419,5 +535,6 @@ def main():
 
     observer.join()
 
+# Entry point
 if __name__ == "__main__":
     main()

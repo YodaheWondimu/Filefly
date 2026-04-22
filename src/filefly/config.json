@@ -1,16 +1,17 @@
 {
   "extensions": {
-    ".pdf": "~/Documents/Documents",
-    ".txt": "~/Documents/Documents",
-    ".doc": "~/Documents/Documents",
-    ".docx": "~/Documents/Documents",
-    ".djv": "~/Documents/Documents",
-    ".djvu": "~/Documents/Documents",
-    ".epub": "~/Documents/Documents",
-    ".mobi": "~/Documents/Documents",
-    ".fb2": "~/Documents/Documents",
-    ".azw3": "~/Documents/Documents",
-    ".rar": "~/Documents/Documents",
+    ".pdf": "~/Documents/Docs",
+    ".txt": "~/Documents/Docs",
+    ".doc": "~/Documents/Docs",
+    ".docx": "~/Documents/Docs",
+    ".djv": "~/Documents/Docs",
+    ".djvu": "~/Documents/Docs",
+    ".epub": "~/Documents/Docs",
+    ".mobi": "~/Documents/Docs",
+    ".fb2": "~/Documents/Docs",
+    ".azw3": "~/Documents/Docs",
+    ".rar": "~/Documents/Docs",
+    ".csv": "~/Documents/Spreadsheets",
     ".xls": "~/Documents/Spreadsheets",
     ".xlsx": "~/Documents/Spreadsheets",
     ".ppt": "~/Documents/Presentations",
@@ -35,5 +36,5 @@
   },
   "temp_extensions": [".tmp", ".crdownload", ".opdownload", ".download", ".partial", "~$", ".xlk", ".bak"],
 
-  "watch_folders": ["~/Downloads", "~/Documents"]
+  "watch_folders": ["~/Downloads"]
 }
