@@ -7,10 +7,8 @@ A real-time file automation daemon written in Python that monitors, classifies, 
 Filefly combines rule-based routing with adaptive behavior to safely handle a wide range of file types.
 It is designed to handle real-world edge cases such as incomplete downloads, race conditions, and conflicting file operations.
 
-**📓 Development logs documenting the full build process are available in the `logs` branch.**
-**📓 Development logs documenting the full build process are available in the `logs` branch.**
+**📓 Development logs documenting the full build process are available in the `logs` directory, under the `devlogs` subfolder.**
 
-## Features
 ## Features
 
 ### Core Functionality
@@ -25,32 +23,15 @@ It is designed to handle real-world edge cases such as incomplete downloads, rac
 
 ### Observability
 - Real-time `runtime_status.json`
-- Persistent logging via `filefly.log`
-- Lightweight web dashboard (Flask)
-
-## Screenshots
-### Core Functionality
-- Real-time monitoring of multiple directories
-- Rule-based file routing by extension
-- Automatic archive extraction (ZIP, TAR, 7z)
-
-### Reliability
-- Safe-move logic to prevent overwrites
-- Download stabilization to avoid partial file handling
-- Detection of manual file moves and deletions
-
-### Observability
-- Real-time `runtime_status.json`
-- Persistent logging via `filefly.log`
+- Persistent logging via `filefly.log` (stored in logs/runtime)
 - Lightweight web dashboard (Flask)
 
 ## Screenshots
 
-## Terminal
+### Terminal
 ![Terminal screenshot](assets/filefly_terminal.png)
 
-## Web Dashboard
-## Web Dashboard
+### Web Dashboard
 ![Dashboard screenshot](assets/filefly_web_dashboard.png)
 
 ## Installation
@@ -90,13 +71,6 @@ Includes everything in the core version, plus:
 All Python dependencies will install automatically.
 
 ## Running Filefly
-
-### Quick Start
-
-```
-pip install filefly-files
-filefly
-```
 
 ### Option 1 — Run the daemon via terminal
 
@@ -144,7 +118,7 @@ Users may edit this file to customize behavior via three parameters: `watch_fold
 
 Waiting for temporary files to stabilize before processing them prevents race conditions during downloads.
 
-In local setups, `config.json` typically lives right next to main.py.
+For local setups, `config.json` typically lives right next to main.py.
 
 The system can adapt to certain file behaviors over time and handle unexpected cases gracefully, using logged events to improve reliability.
 
@@ -210,12 +184,6 @@ python -c "import filefly; print(filefly.__version__)"
 pip install --upgrade filefly-files
 ```
 
-## Upgrading
-
-```
-pip install --upgrade filefly-files
-```
-
 ## Uninstalling
 
 ```
@@ -271,7 +239,7 @@ Filefly is currently focused on reliable, rule-based file automation. Future dev
 ## Project Structure
 
 ```
-Filefly/
+filefly/
 ├── assets/
 │   ├── filefly_processing_vs_size.png
 │   ├── filefly_terminal.png
@@ -316,8 +284,6 @@ Filefly/
 
 ## Contributing and Development
 Want to contribute to Filefly? Just clone this repository on your system and make any necessary changes:
-## Contributing and Development
-Want to contribute to Filefly? Just clone this repository on your system and make any necessary changes:
 
 ```
 git clone https://github.com/YodaheWondimu/Filefly.git
@@ -326,7 +292,6 @@ pip install -r requirements.txt
 python -m filefly
 ```
 
-## License
 ## License
 Filefly is released under the MIT License.
 See `LICENSE` for more details.
