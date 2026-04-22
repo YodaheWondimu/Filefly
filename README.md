@@ -8,9 +8,27 @@ Filefly combines rule-based routing with adaptive behavior to safely handle a wi
 It is designed to handle real-world edge cases such as incomplete downloads, race conditions, and conflicting file operations.
 
 **📓 Development logs documenting the full build process are available in the `logs` branch.**
+**📓 Development logs documenting the full build process are available in the `logs` branch.**
 
 ## Features
+## Features
 
+### Core Functionality
+- Real-time monitoring of multiple directories
+- Rule-based file routing by extension
+- Automatic archive extraction (ZIP, TAR, 7z)
+
+### Reliability
+- Safe-move logic to prevent overwrites
+- Download stabilization to avoid partial file handling
+- Detection of manual file moves and deletions
+
+### Observability
+- Real-time `runtime_status.json`
+- Persistent logging via `filefly.log`
+- Lightweight web dashboard (Flask)
+
+## Screenshots
 ### Core Functionality
 - Real-time monitoring of multiple directories
 - Rule-based file routing by extension
@@ -31,6 +49,7 @@ It is designed to handle real-world edge cases such as incomplete downloads, rac
 ## Terminal
 ![Terminal screenshot](assets/filefly_terminal.png)
 
+## Web Dashboard
 ## Web Dashboard
 ![Dashboard screenshot](assets/filefly_web_dashboard.png)
 
@@ -191,6 +210,12 @@ python -c "import filefly; print(filefly.__version__)"
 pip install --upgrade filefly-files
 ```
 
+## Upgrading
+
+```
+pip install --upgrade filefly-files
+```
+
 ## Uninstalling
 
 ```
@@ -291,6 +316,8 @@ Filefly/
 
 ## Contributing and Development
 Want to contribute to Filefly? Just clone this repository on your system and make any necessary changes:
+## Contributing and Development
+Want to contribute to Filefly? Just clone this repository on your system and make any necessary changes:
 
 ```
 git clone https://github.com/YodaheWondimu/Filefly.git
@@ -299,6 +326,7 @@ pip install -r requirements.txt
 python -m filefly
 ```
 
+## License
 ## License
 Filefly is released under the MIT License.
 See `LICENSE` for more details.
