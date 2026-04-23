@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "filefly-files"
-version = "0.2.0a1"
+version = "0.2.0a2"
 description = "An automated daemon for file management/extraction and file behavior analysis."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -32,7 +32,7 @@ analysis = [
 
 # CLI script: installs 'filefly' command
 [project.scripts]
-filefly = "filefly.__main__:main"
+filefly = "filefly.main:main"
 
 # Tell setuptools where to find your packages
 [tool.setuptools]

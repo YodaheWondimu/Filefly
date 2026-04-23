@@ -1,8 +1,8 @@
 # Made by Yodahe Wondimu
 # A simple script to generate a report based on data from the SQLite database and telemetry metrics.
 
-from storage import Storage
-from telemetry import Telemetry
+from .storage import Storage
+from .telemetry import Telemetry
 
 storage = Storage()
 telemetry = Telemetry()

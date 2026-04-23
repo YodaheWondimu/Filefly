@@ -13,9 +13,9 @@ import logging
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pathlib import Path
-from storage import Storage
-from telemetry import Telemetry
-from logging_config import setup_logging
+from .storage import Storage
+from .telemetry import Telemetry
+from .logging_config import setup_logging
 
 storage = Storage()
 telemetry = Telemetry()
