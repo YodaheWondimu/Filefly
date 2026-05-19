@@ -2,7 +2,7 @@
 # A simple CLI to run the filefly monitor or generate a report.
 
 import argparse
-from reporter import generate_report
+from filefly.reporter import generate_report
 
 def main():
     parser = argparse.ArgumentParser(prog="filefly")
